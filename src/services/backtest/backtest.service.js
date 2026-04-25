@@ -1,5 +1,17 @@
 const history = [];
 
+const getSignalDirection = (signal) => {
+  if (!signal) return null;
+
+  if (signal.direction === "buy") return "buy";
+  if (signal.direction === "sell") return "sell";
+
+  if (signal.type.includes("BUY") || signal.type.includes("UP")) return "buy";
+  if (signal.type.includes("SELL") || signal.type.includes("DOWN")) return "sell";
+
+  return null;
+};
+
 const addToHistory = (metrics) => {
   history.push(metrics);
 
@@ -8,37 +20,49 @@ const addToHistory = (metrics) => {
   }
 };
 
-const evaluateSignal = (metrics, horizonMs = 1000) => {
-  const targetTime = metrics.startTime + horizonMs;
+const evaluateSignalFromHistory = (signal, horizonMs = 1000) => {
+  const direction = getSignalDirection(signal);
 
-  // ищем ближайший future bucket
-  let closest = null;
-  let minDiff = Infinity;
+  if (!direction) {
+    return [];
+  }
 
-  for (const item of history) {
-    const diff = Math.abs(item.startTime - targetTime);
+  const results = [];
 
-    if (diff < minDiff) {
-      minDiff = diff;
-      closest = item;
+  history.forEach((current) => {
+    const targetTime = current.startTime + horizonMs;
+    const future = history.find((item) => item.startTime >= targetTime);
+
+    if (!future) {
+      return;
     }
-  }
 
-  // если слишком далеко — игнорируем
-  if (!closest || minDiff > 1500) {
-    return null;
-  }
+    const rawReturn = (future.midPrice - current.midPrice) / current.midPrice;
 
-  return {
-    horizonMs,
-    returnValue:
-      (closest.midPrice - metrics.midPrice) / metrics.midPrice,
-    currentMidPrice: metrics.midPrice,
-    futureMidPrice: closest.midPrice
-  };
+    const directionalReturn =
+      direction === "buy" ? rawReturn : -rawReturn;
+
+    results.push({
+      signalType: signal.type,
+      direction,
+      horizonMs,
+      rawReturn,
+      directionalReturn,
+      currentMidPrice: current.midPrice,
+      futureMidPrice: future.midPrice,
+      currentTime: current.startTime,
+      futureTime: future.startTime
+    });
+  });
+
+  return results;
+};
+
+const evaluateSignalsFromHistory = (signals, horizonMs = 1000) => {
+  return signals.flatMap((signal) => evaluateSignalFromHistory(signal, horizonMs));
 };
 
 module.exports = {
   addToHistory,
-  evaluateSignal
+  evaluateSignalsFromHistory
 };

@@ -5,9 +5,11 @@ const { logger } = require("./utils/logger");
 
 require("./models/raw-trade.model");
 require("./models/raw-orderbook.model");
-const { processBuckets } = require("./services/aggregation/bucket-processor.service");
+
 const { startBinanceTradesStream } = require("./services/ingestion/binance.ws.service");
 const { startBinanceOrderbookStream } = require("./services/ingestion/binance.orderbook.ws.service");
+const { startBybitTradesStream } = require("./services/ingestion/bybit.ws.service");
+const { processBuckets } = require("./services/aggregation/bucket-processor.service");
 
 let server;
 
@@ -19,6 +21,11 @@ const startServer = async () => {
 
     startBinanceTradesStream();
     startBinanceOrderbookStream();
+    startBybitTradesStream();
+
+    setInterval(() => {
+      processBuckets();
+    }, 1000);
 
     server = app.listen(env.port, () => {
       logger.info(`Server started on port ${env.port}`);
@@ -48,7 +55,5 @@ const shutdown = async (signal) => {
 
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
-setInterval(() => {
-  processBuckets();
-}, 1000);
+
 startServer();

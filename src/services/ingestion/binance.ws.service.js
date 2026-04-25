@@ -2,6 +2,8 @@ const WebSocket = require("ws");
 const { logger } = require("../../utils/logger");
 const { RawTrade } = require("../../models/raw-trade.model");
 const { addTradeToBucket } = require("../aggregation/aggregator.service");
+const { updateLastTrade } = require("../cross-exchange/cross-exchange.service");
+const { addPricePoint } = require("../lead-lag/lead-lag.service");
 
 const BINANCE_WS_URL = "wss://stream.binance.com:9443/ws/btcusdt@trade";
 
@@ -32,6 +34,8 @@ const startBinanceTradesStream = () => {
       }
 
       addTradeToBucket(trade);
+      updateLastTrade(trade);
+      addPricePoint(trade);
 
       await RawTrade.create(trade);
     } catch (error) {

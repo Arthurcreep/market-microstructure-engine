@@ -3,7 +3,7 @@ const { logger } = require("../../utils/logger");
 const { detectSignal } = require("../signals/signal-detector.service");
 const { detectCompositeSignal } = require("../signals/composite-signal.service");
 const { detectDeltaSignal } = require("../signals/delta-signal.service");
-const { addToHistory, evaluateSignal } = require("../backtest/backtest.service");
+const { addToHistory, evaluateSignalsFromHistory } = require("../backtest/backtest.service");
 const { recordSignalResult, getStats } = require("../backtest/stats.service");
 
 const getTopLevelsVolume = (levels, depth = 5) => {
@@ -106,11 +106,21 @@ const processBuckets = () => {
 
       addToHistory(metrics);
 
-      const futureReturn1s = evaluateSignal(metrics, 1000);
-      const futureReturn5s = evaluateSignal(metrics, 5000);
-      const futureReturn10s = evaluateSignal(metrics, 10000);
+      const results1s = evaluateSignalsFromHistory(signals, 1000);
+      const results5s = evaluateSignalsFromHistory(signals, 5000);
+      const results10s = evaluateSignalsFromHistory(signals, 10000);
 
-      recordSignalResult(signals, futureReturn1s);
+      results1s.forEach((result) => {
+        recordSignalResult(signals, { returnValue: result.directionalReturn }, null, null);
+      });
+
+      results5s.forEach((result) => {
+        recordSignalResult(signals, null, { returnValue: result.directionalReturn }, null);
+      });
+
+      results10s.forEach((result) => {
+        recordSignalResult(signals, null, null, { returnValue: result.directionalReturn });
+      });
 
       const signalStats = getStats();
 
@@ -121,12 +131,14 @@ const processBuckets = () => {
           compositeSignals,
           deltaSignals,
           signals,
-          futureReturn1s,
-          futureReturn5s,
-          futureReturn10s,
+          directionAware: {
+            samples1s: results1s.length,
+            samples5s: results5s.length,
+            samples10s: results10s.length
+          },
           signalStats
         },
-        "Processed bucket with delta signals"
+        "Processed bucket with direction-aware backtest"
       );
     } catch (error) {
       logger.error(
