@@ -4,32 +4,31 @@ const stats = {
 };
 
 const recordSignalResult = (signals, futureReturn1s) => {
-  if (!signals.length || !futureReturn1s) {
-    return;
+  // считаем сигналы ВСЕГДА
+  if (signals.length) {
+    stats.totalSignals += signals.length;
   }
 
-  stats.totalSignals += signals.length;
-  stats.returns1s.push(futureReturn1s.returnValue);
+  // return считаем только если он есть
+  if (futureReturn1s) {
+    stats.returns1s.push(futureReturn1s.returnValue);
 
-  if (stats.returns1s.length > 5000) {
-    stats.returns1s.shift();
+    if (stats.returns1s.length > 5000) {
+      stats.returns1s.shift();
+    }
   }
 };
 
 const getAverage = (values) => {
-  if (!values.length) {
-    return null;
-  }
+  if (!values.length) return null;
 
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
+  return values.reduce((sum, v) => sum + v, 0) / values.length;
 };
 
 const getWinRate = (values) => {
-  if (!values.length) {
-    return null;
-  }
+  if (!values.length) return null;
 
-  const wins = values.filter((value) => value > 0).length;
+  const wins = values.filter((v) => v > 0).length;
 
   return wins / values.length;
 };

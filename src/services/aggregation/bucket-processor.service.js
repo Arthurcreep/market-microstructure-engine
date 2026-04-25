@@ -1,6 +1,8 @@
 const { getCompletedBuckets } = require("./aggregator.service");
 const { logger } = require("../../utils/logger");
 const { detectSignal } = require("../signals/signal-detector.service");
+const { detectCompositeSignal } = require("../signals/composite-signal.service");
+const { detectDeltaSignal } = require("../signals/delta-signal.service");
 const { addToHistory, evaluateSignal } = require("../backtest/backtest.service");
 const { recordSignalResult, getStats } = require("../backtest/stats.service");
 
@@ -10,13 +12,9 @@ const getTopLevelsVolume = (levels, depth = 5) => {
     .reduce((sum, level) => sum + Number(level[1]), 0);
 };
 
-const getBestPrice = (levels) => {
-  return Number(levels[0][0]);
-};
+const getBestPrice = (levels) => Number(levels[0][0]);
 
-const getBestSize = (levels) => {
-  return Number(levels[0][1]);
-};
+const getBestSize = (levels) => Number(levels[0][1]);
 
 const calculateBucketMetrics = (bucket) => {
   const trades = bucket.trades;
@@ -95,7 +93,16 @@ const processBuckets = () => {
       }
 
       const metrics = calculateBucketMetrics(bucket);
-      const signals = detectSignal(metrics);
+
+      const baseSignals = detectSignal(metrics);
+      const compositeSignals = detectCompositeSignal(metrics);
+      const deltaSignals = detectDeltaSignal(metrics);
+
+      const signals = [
+        ...baseSignals,
+        ...compositeSignals,
+        ...deltaSignals
+      ];
 
       addToHistory(metrics);
 
@@ -110,13 +117,16 @@ const processBuckets = () => {
       logger.info(
         {
           ...metrics,
+          baseSignals,
+          compositeSignals,
+          deltaSignals,
           signals,
           futureReturn1s,
           futureReturn5s,
           futureReturn10s,
           signalStats
         },
-        "Processed bucket with signal statistics"
+        "Processed bucket with delta signals"
       );
     } catch (error) {
       logger.error(

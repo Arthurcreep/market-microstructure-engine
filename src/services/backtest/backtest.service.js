@@ -9,19 +9,32 @@ const addToHistory = (metrics) => {
 };
 
 const evaluateSignal = (metrics, horizonMs = 1000) => {
-  const future = history.find(
-    (item) => item.startTime === metrics.startTime + horizonMs
-  );
+  const targetTime = metrics.startTime + horizonMs;
 
-  if (!future) {
+  // ищем ближайший future bucket
+  let closest = null;
+  let minDiff = Infinity;
+
+  for (const item of history) {
+    const diff = Math.abs(item.startTime - targetTime);
+
+    if (diff < minDiff) {
+      minDiff = diff;
+      closest = item;
+    }
+  }
+
+  // если слишком далеко — игнорируем
+  if (!closest || minDiff > 1500) {
     return null;
   }
 
   return {
     horizonMs,
-    returnValue: (future.midPrice - metrics.midPrice) / metrics.midPrice,
+    returnValue:
+      (closest.midPrice - metrics.midPrice) / metrics.midPrice,
     currentMidPrice: metrics.midPrice,
-    futureMidPrice: future.midPrice
+    futureMidPrice: closest.midPrice
   };
 };
 
